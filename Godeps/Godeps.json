@@ -1,5 +1,5 @@
 {
-	"ImportPath": "github.com/UKHomeOffice/ebseni",
+	"ImportPath": "github.com/UKHomeOffice/smilodon",
 	"GoVersion": "go1.6",
 	"GodepVersion": "v62",
 	"Deps": [
