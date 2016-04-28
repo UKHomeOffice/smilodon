@@ -14,20 +14,29 @@ import (
 type cmdLineOpts struct {
 	filters     string
 	blockDevice string
+	createFs    bool
+	fsType      string
+	mountFs     bool
+	mountPoint  string
 	help        bool
 	version     bool
 }
 
 var (
-	opts    cmdLineOpts
-	region  string
-	ec2c    *ec2.EC2
-	filters []*ec2.Filter
+	opts              cmdLineOpts
+	region            string
+	ec2c              *ec2.EC2
+	filters           []*ec2.Filter
+	volumeAttachTries int
 )
 
 func init() {
 	flag.StringVar(&opts.filters, "filters", "", "a comma-delimited list of filters. For example --filters='tag-key=Env,Profile=foo'")
 	flag.StringVar(&opts.blockDevice, "block-device", "/dev/xvde", "linux block device path")
+	flag.BoolVar(&opts.createFs, "create-file-system", false, "whether to create a file system")
+	flag.StringVar(&opts.fsType, "file-system-type", "ext4", "file system type")
+	flag.BoolVar(&opts.mountFs, "mount-fs", false, "whether to mount a file system")
+	flag.StringVar(&opts.mountPoint, "mount-point", "/data", "mount point path")
 	flag.BoolVar(&opts.help, "help", false, "print this message")
 	flag.BoolVar(&opts.version, "version", false, "print version and exit")
 }
@@ -70,6 +79,12 @@ func run(i *instance) {
 		for _, v := range volumes {
 			if i.volume == nil && v.attachedTo == i.id {
 				log.Printf("Found attached volume: %q.\n", v.id)
+				if opts.createFS {
+					if !hasFs(opts.blockDevice, opts.fsType) {
+						mkfs(opts.blockDevice, opts.fsType)
+
+					}
+				}
 				i.volume = &v
 				break
 			}
@@ -105,7 +120,11 @@ func run(i *instance) {
 		log.Println("Neither a volume, nor a network interface are attached.")
 		for _, v := range volumes {
 			if v.available {
-				_ = i.attachVolume(v, ec2c)
+				if err := i.attachVolume(v, ec2c); err == nil {
+					if opts.createFs && !hasFs(opts.blockDevice, opts.fsType) {
+						mkfs(opts.blockDevice, opts.fsType)
+					}
+				}
 				break
 			}
 		}
@@ -143,6 +162,12 @@ func run(i *instance) {
 			if v.available && v.nodeID == i.networkInterface.nodeID {
 				log.Printf("Found a matching volume %q with NodeID %q.\n", v.id, v.nodeID)
 				_ = i.attachVolume(v, ec2c)
+				if opts.createFS {
+					if !hasFs(opts.blockDevice, opts.fsType) {
+						mkfs(opts.blockDevice, opts.fsType)
+
+					}
+				}
 				break
 			}
 		}
