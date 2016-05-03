@@ -79,9 +79,6 @@ func run(i *instance) {
 		for _, v := range volumes {
 			if i.volume == nil && v.attachedTo == i.id && !v.available {
 				log.Printf("Found attached volume: %q.\n", v.id)
-				if opts.createFs && !hasFs(opts.blockDevice, opts.fsType) {
-					mkfs(opts.blockDevice, opts.fsType)
-				}
 				i.volume = &v
 				break
 			}
@@ -117,11 +114,7 @@ func run(i *instance) {
 		log.Println("Neither a volume, nor a network interface are attached.")
 		for _, v := range volumes {
 			if v.available {
-				if err := i.attachVolume(v, ec2c); err == nil {
-					if opts.createFs && !hasFs(opts.blockDevice, opts.fsType) {
-						mkfs(opts.blockDevice, opts.fsType)
-					}
-				}
+				i.attachVolume(v, ec2c)
 				break
 			}
 		}
@@ -157,7 +150,7 @@ func run(i *instance) {
 	// volume after 3 tries, we release the network interface.
 	if i.networkInterface != nil && i.volume == nil {
 		if volumeAttachTries > 2 {
-			log.Println("Unable to find a matching volume after 3 retries.")
+			log.Println("Unable to attach a matching volume after 3 retries.")
 			if err := i.dettachNetworkInterface(); err == nil {
 				volumeAttachTries = 0
 			}
@@ -166,9 +159,6 @@ func run(i *instance) {
 			if v.available && v.nodeID == i.networkInterface.nodeID {
 				log.Printf("Found a matching volume %q with NodeID %q.\n", v.id, v.nodeID)
 				if err := i.attachVolume(v, ec2c); err == nil {
-					if opts.createFs && !hasFs(opts.blockDevice, opts.fsType) {
-						mkfs(opts.blockDevice, opts.fsType)
-					}
 					volumeAttachTries = 0
 					break
 				}
@@ -179,16 +169,24 @@ func run(i *instance) {
 		}
 	}
 
-	// Set nodeID only when both volume and network interface are attached and their node IDs match.
+	// FIXME: below could be cleaned up with less if statements maybe
+	// Set node ID. If specified, create and mount the file system.
 	if i.volume != nil && i.networkInterface != nil {
 		if i.volume.nodeID == i.networkInterface.nodeID {
 			if i.nodeID != i.volume.nodeID {
 				i.nodeID = i.volume.nodeID
-				log.Printf("Node ID was set to: %q.\n", i.nodeID)
+				log.Printf("Node ID is %q.\n", i.nodeID)
 			}
 		}
+		// Set nodeID only when both volume and network interface are attached and their node IDs match.
 		if i.volume.nodeID != i.networkInterface.nodeID {
 			log.Printf("Something has gone wrong, volume and network interface node IDs do not match.")
+		}
+		if opts.createFs && !hasFs(opts.blockDevice, opts.fsType) {
+			mkfs(opts.blockDevice, opts.fsType)
+		}
+		if hasFs(opts.blockDevice, opts.fsType) && opts.mountFs && !isMounted(opts.blockDevice) {
+			mount(opts.blockDevice, opts.mountPoint, opts.fsType)
 		}
 	}
 }

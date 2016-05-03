@@ -1,7 +1,9 @@
 package main
 
 import (
+	"io/ioutil"
 	"log"
+	"os"
 	"os/exec"
 	"strings"
 )
@@ -37,4 +39,36 @@ func mkfs(d, f string) error {
 	}
 	log.Printf("Successfully formatted device %q with file system %q.\n", d, f)
 	return nil
+}
+
+// mount mounts device d with file system type t to mount point p and returns an error if any.
+func mount(d, p, t string) (err error) {
+	if _, err := os.Stat(p); os.IsNotExist(err) {
+		log.Printf("Mount point %q does not exist. Creating %q.\n", p, p)
+		if err := os.MkdirAll(p, 0750); err != nil {
+			log.Printf("Failed to create the mount path: %q.\n", err)
+			return err
+		}
+	}
+	log.Printf("Mounting %q to %q.\n", d, p)
+	cmd := exec.Command("/usr/bin/mount", "-t", t, d, p)
+	o, err := cmd.CombinedOutput()
+	if err != nil {
+		log.Printf("Mount failed: %q to %q: %q.\n", d, p, string(o))
+		return err
+	}
+	log.Printf("Successfully mounted device %q to %q.\n", d, p)
+	return nil
+}
+
+// isMounted checks if device d is mounted. It returns a boolean
+func isMounted(d string) bool {
+	v, err := ioutil.ReadFile("/proc/mounts")
+	if err != nil {
+		log.Printf("Failed to read mounts information from /proc/mounts: %q.\n", err)
+	}
+	if strings.Contains(string(v), d+" ") {
+		return true
+	}
+	return false
 }
