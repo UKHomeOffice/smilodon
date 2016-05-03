@@ -77,13 +77,10 @@ func run(i *instance) {
 		log.Println(err)
 	} else {
 		for _, v := range volumes {
-			if i.volume == nil && v.attachedTo == i.id {
+			if i.volume == nil && v.attachedTo == i.id && !v.available {
 				log.Printf("Found attached volume: %q.\n", v.id)
-				if opts.createFS {
-					if !hasFs(opts.blockDevice, opts.fsType) {
-						mkfs(opts.blockDevice, opts.fsType)
-
-					}
+				if opts.createFs && !hasFs(opts.blockDevice, opts.fsType) {
+					mkfs(opts.blockDevice, opts.fsType)
 				}
 				i.volume = &v
 				break
@@ -102,7 +99,7 @@ func run(i *instance) {
 		log.Println(err)
 	} else {
 		for _, n := range networkInterfaces {
-			if i.networkInterface == nil && n.attachedTo == i.id {
+			if i.networkInterface == nil && n.attachedTo == i.id && !n.available {
 				log.Printf("Found attached network interface: %q.\n", n.id)
 				i.networkInterface = &n
 				break
@@ -156,20 +153,29 @@ func run(i *instance) {
 	}
 
 	// If network interface is attached, but volume is not, then find a
-	// matching available volume and attach it.
+	// matching available volume and attach it. If we cannot find a matching
+	// volume after 3 tries, we release the network interface.
 	if i.networkInterface != nil && i.volume == nil {
+		if volumeAttachTries > 2 {
+			log.Println("Unable to find a matching volume after 3 retries.")
+			if err := i.dettachNetworkInterface(); err == nil {
+				volumeAttachTries = 0
+			}
+		}
 		for _, v := range volumes {
 			if v.available && v.nodeID == i.networkInterface.nodeID {
 				log.Printf("Found a matching volume %q with NodeID %q.\n", v.id, v.nodeID)
-				_ = i.attachVolume(v, ec2c)
-				if opts.createFS {
-					if !hasFs(opts.blockDevice, opts.fsType) {
+				if err := i.attachVolume(v, ec2c); err == nil {
+					if opts.createFs && !hasFs(opts.blockDevice, opts.fsType) {
 						mkfs(opts.blockDevice, opts.fsType)
-
 					}
+					volumeAttachTries = 0
+					break
 				}
-				break
 			}
+		}
+		if i.volume == nil {
+			volumeAttachTries++
 		}
 	}
 

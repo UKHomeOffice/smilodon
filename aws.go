@@ -129,10 +129,11 @@ func buildFilters(i instance) []*ec2.Filter {
 }
 
 type networkInterface struct {
-	id         string
-	available  bool
-	attachedTo string
-	nodeID     string
+	id           string
+	available    bool
+	attachedTo   string
+	nodeID       string
+	attachmentID string
 }
 
 func findNetworkInterfaces(i *instance, ec2c *ec2.EC2, f []*ec2.Filter) ([]networkInterface, error) {
@@ -155,6 +156,9 @@ func findNetworkInterfaces(i *instance, ec2c *ec2.EC2, f []*ec2.Filter) ([]netwo
 		var n networkInterface
 		n.id = *i.NetworkInterfaceId
 		n.nodeID = getResourceTagValue(*i.NetworkInterfaceId, "NodeID", ec2c)
+		if i.Attachment != nil {
+			n.attachmentID = *i.Attachment.AttachmentId
+		}
 		if *i.Status == ec2.NetworkInterfaceStatusAvailable {
 			n.available = true
 		} else {
@@ -233,5 +237,19 @@ func (i *instance) attachNetworkInterface(n networkInterface, ec2c *ec2.EC2) err
 		return err
 	}
 	i.networkInterface = &n
+	return nil
+}
+
+// dettachNetworkInterface detaches a network interface n.
+func (i *instance) dettachNetworkInterface() error {
+	log.Printf("Detaching network interface: %q.\n", i.networkInterface.id)
+	_, err := ec2c.DetachNetworkInterface(&ec2.DetachNetworkInterfaceInput{
+		AttachmentId: &i.networkInterface.attachmentID,
+	})
+	if err != nil {
+		log.Printf("Failed to dettach network interface %q: %q.\n", i.networkInterface.id, err)
+		return err
+	}
+	i.networkInterface = nil
 	return nil
 }
