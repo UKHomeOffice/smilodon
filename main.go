@@ -6,28 +6,32 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/ec2"
+	"github.com/coreos/go-systemd/dbus"
 	"log"
 	"os"
 	"time"
 )
 
 type cmdLineOpts struct {
-	filters     string
-	blockDevice string
-	createFs    bool
-	fsType      string
-	mountFs     bool
-	mountPoint  string
-	help        bool
-	version     bool
+	filters      string
+	blockDevice  string
+	createFs     bool
+	fsType       string
+	mountFs      bool
+	mountPoint   string
+	startService string
+	help         bool
+	version      bool
 }
 
 var (
 	opts              cmdLineOpts
 	region            string
 	ec2c              *ec2.EC2
+	dbusConn          *dbus.Conn
 	filters           []*ec2.Filter
 	volumeAttachTries int
+	service           *srv
 )
 
 func init() {
@@ -37,6 +41,7 @@ func init() {
 	flag.StringVar(&opts.fsType, "file-system-type", "ext4", "file system type")
 	flag.BoolVar(&opts.mountFs, "mount-fs", false, "whether to mount a file system")
 	flag.StringVar(&opts.mountPoint, "mount-point", "/data", "mount point path")
+	flag.StringVar(&opts.startService, "start-service", "", "systemd service name to start")
 	flag.BoolVar(&opts.help, "help", false, "print this message")
 	flag.BoolVar(&opts.version, "version", false, "print version and exit")
 }
@@ -62,6 +67,18 @@ func main() {
 	}
 	ec2c = ec2.New(session.New(), aws.NewConfig().WithRegion(i.region))
 	filters = buildFilters(i)
+
+	if opts.startService != "" {
+		// TODO: check service state
+		service = &srv{
+			name: opts.startService,
+		}
+		dc, err := dbus.New()
+		if err != nil {
+			log.Fatalf("Failed to establish a connection to dbus: %q.\n", err)
+		}
+		service.dbusConn = dc
+	}
 
 	for {
 		run(&i)
@@ -115,6 +132,7 @@ func run(i *instance) {
 		for _, v := range volumes {
 			if v.available {
 				i.attachVolume(v, ec2c)
+				service.needsRestarting = true
 				break
 			}
 		}
@@ -159,6 +177,7 @@ func run(i *instance) {
 			if v.available && v.nodeID == i.networkInterface.nodeID {
 				log.Printf("Found a matching volume %q with NodeID %q.\n", v.id, v.nodeID)
 				if err := i.attachVolume(v, ec2c); err == nil {
+					service.needsRestarting = true
 					volumeAttachTries = 0
 					break
 				}
@@ -187,6 +206,11 @@ func run(i *instance) {
 		}
 		if hasFs(opts.blockDevice, opts.fsType) && opts.mountFs && !isMounted(opts.blockDevice) {
 			mount(opts.blockDevice, opts.mountPoint, opts.fsType)
+		}
+		if opts.startService != "" && service.needsRestarting == true {
+			// TODO: check service state
+			service.restart()
+			service.needsRestarting = false
 		}
 	}
 }
