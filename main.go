@@ -65,7 +65,7 @@ func main() {
 
 	for {
 		run(&i)
-		time.Sleep(10 * time.Second)
+		time.Sleep(120 * time.Second)
 	}
 }
 
