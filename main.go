@@ -18,6 +18,7 @@ type cmdLineOpts struct {
 	fsType      string
 	mountFs     bool
 	mountPoint  string
+	envFile     string
 	help        bool
 	version     bool
 }
@@ -37,6 +38,7 @@ func init() {
 	flag.StringVar(&opts.fsType, "file-system-type", "ext4", "file system type")
 	flag.BoolVar(&opts.mountFs, "mount-fs", false, "whether to mount a file system")
 	flag.StringVar(&opts.mountPoint, "mount-point", "/data", "mount point path")
+	flag.StringVar(&opts.envFile, "env-file", "/run/smilodon/environment", "environment file path")
 	flag.BoolVar(&opts.help, "help", false, "print this message")
 	flag.BoolVar(&opts.version, "version", false, "print version and exit")
 }
@@ -176,6 +178,7 @@ func run(i *instance) {
 			if i.nodeID != i.volume.nodeID {
 				i.nodeID = i.volume.nodeID
 				log.Printf("Node ID is %q.\n", i.nodeID)
+				writeEnvFile(opts.envFile, *i)
 			}
 		}
 		// Set nodeID only when both volume and network interface are attached and their node IDs match.
