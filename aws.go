@@ -134,6 +134,7 @@ type networkInterface struct {
 	attachedTo   string
 	nodeID       string
 	attachmentID string
+	IPAddress    string
 }
 
 func findNetworkInterfaces(i *instance, ec2c *ec2.EC2, f []*ec2.Filter) ([]networkInterface, error) {
@@ -156,6 +157,7 @@ func findNetworkInterfaces(i *instance, ec2c *ec2.EC2, f []*ec2.Filter) ([]netwo
 		var n networkInterface
 		n.id = *i.NetworkInterfaceId
 		n.nodeID = getResourceTagValue(*i.NetworkInterfaceId, "NodeID", ec2c)
+		n.IPAddress = *i.PrivateIpAddress
 		if i.Attachment != nil {
 			n.attachmentID = *i.Attachment.AttachmentId
 		}
