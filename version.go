@@ -1,4 +1,4 @@
 package main
 
 // Version defines current version
-var Version = "0.0.2"
+var Version = "0.0.3"
