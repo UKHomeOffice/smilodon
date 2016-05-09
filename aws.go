@@ -13,7 +13,6 @@ type instance struct {
 	id               string
 	nodeID           string
 	vpc              string
-	env              string
 	az               string
 	region           string
 	volume           *volume

@@ -185,11 +185,15 @@ func run(i *instance) {
 		if i.volume.nodeID != i.networkInterface.nodeID {
 			log.Printf("Something has gone wrong, volume and network interface node IDs do not match.")
 		}
-		if opts.createFs && !hasFs(opts.blockDevice, opts.fsType) {
-			mkfs(opts.blockDevice, opts.fsType)
+		if opts.createFs {
+			if !hasFs(opts.blockDevice, opts.fsType) {
+				mkfs(opts.blockDevice, opts.fsType)
+			}
 		}
-		if hasFs(opts.blockDevice, opts.fsType) && opts.mountFs && !isMounted(opts.blockDevice) {
-			mount(opts.blockDevice, opts.mountPoint, opts.fsType)
+		if opts.mountFs {
+			if hasFs(opts.blockDevice, opts.fsType) && !isMounted(opts.blockDevice) {
+				mount(opts.blockDevice, opts.mountPoint, opts.fsType)
+			}
 		}
 	}
 }
