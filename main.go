@@ -63,6 +63,7 @@ func main() {
 		log.Fatalf("Issues getting instance metadata properties. Exiting..")
 	}
 	ec2c = ec2.New(session.New(), aws.NewConfig().WithRegion(i.region))
+	disableSourceDestCheck(i.id, ec2c)
 	filters = buildFilters(i)
 
 	for {

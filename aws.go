@@ -254,3 +254,26 @@ func (i *instance) dettachNetworkInterface() error {
 	i.networkInterface = nil
 	return nil
 }
+
+// disableSourceDestCheck sets SourceDestCheck attribute to false on all
+// instance network interfaces.
+func disableSourceDestCheck(instanceID string, ec2c *ec2.EC2) error {
+	i, err := ec2c.DescribeInstances(&ec2.DescribeInstancesInput{
+		InstanceIds: []*string{aws.String(instanceID)}},
+	)
+	if err != nil {
+		return err
+	}
+	for _, n := range i.Reservations[0].Instances[0].NetworkInterfaces {
+		attr := &ec2.ModifyNetworkInterfaceAttributeInput{
+			NetworkInterfaceId: n.NetworkInterfaceId,
+			SourceDestCheck:    &ec2.AttributeBooleanValue{Value: aws.Bool(false)},
+		}
+		log.Printf("Disabling SourceDestCheck on %q network interface.\n", *n.NetworkInterfaceId)
+		ec2c.ModifyNetworkInterfaceAttribute(attr)
+		if err != nil {
+			log.Printf("Failed to disable SourceDestCheck attribute of %q network interface: %q.\n", n.NetworkInterfaceId, err)
+		}
+	}
+	return nil
+}
