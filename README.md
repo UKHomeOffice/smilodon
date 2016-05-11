@@ -46,6 +46,7 @@ Action:
   - ec2:AttachVolume
   - ec2:AttachNetworkInterface
   - ec2:DetachNetworkInterface
+  - ec2:ModifyNetworkInterfaceAttribute
 ```
 
 
