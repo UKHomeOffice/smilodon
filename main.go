@@ -32,7 +32,7 @@ var (
 )
 
 func init() {
-	flag.StringVar(&opts.filters, "filters", "", "a comma-delimited list of filters. For example --filters='tag-key=Env,Profile=foo'")
+	flag.StringVar(&opts.filters, "filters", "", "a comma-delimited list of filters. For example --filters='tag-key=Env,tag:Profile=foo'")
 	flag.StringVar(&opts.blockDevice, "block-device", "/dev/xvde", "linux block device path")
 	flag.BoolVar(&opts.createFs, "create-file-system", false, "whether to create a file system")
 	flag.StringVar(&opts.fsType, "file-system-type", "ext4", "file system type")
