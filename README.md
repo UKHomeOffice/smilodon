@@ -73,7 +73,7 @@ Project=<any value>
 
 To tell smilodon to only look for resources with the above tags, do this:
 ```
-smilodon --filters='Env=development,Service=etcd,tag-key=Project'
+smilodon --filters='tag:Env=development,tag:Service=etcd,tag-key=Project'
 ```
 
 As you can see above, last filter matches on any value of tag `Project`. You
