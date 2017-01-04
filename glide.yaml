@@ -1,0 +1,8 @@
+package: github.com/UKHomeOffice/smilodon
+import:
+- package: github.com/aws/aws-sdk-go
+  subpackages:
+  - aws
+  - aws/ec2metadata
+  - aws/session
+  - service/ec2
