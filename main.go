@@ -3,12 +3,14 @@ package main
 import (
 	"flag"
 	"fmt"
+	"log"
+	"net"
+	"os"
+	"time"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/ec2"
-	"log"
-	"os"
-	"time"
 )
 
 type cmdLineOpts struct {
@@ -128,6 +130,7 @@ func run(i *instance) {
 			for _, n := range networkInterfaces {
 				if n.available && i.volume.nodeID == n.nodeID {
 					_ = i.attachNetworkInterface(n, ec2c)
+					waitAndSetupIface(n.IPAddress)
 					break
 				}
 				log.Println("No available network interfaces found.")
@@ -143,6 +146,7 @@ func run(i *instance) {
 		for _, n := range networkInterfaces {
 			if n.available && n.nodeID == i.volume.nodeID {
 				_ = i.attachNetworkInterface(n, ec2c)
+				waitAndSetupIface(n.IPAddress)
 				break
 			}
 		}
@@ -197,4 +201,68 @@ func run(i *instance) {
 			}
 		}
 	}
+}
+
+// waitAndSetupIface blocks until network interface becomes ready and gets an
+// IP, then set needed sysctl settings.
+func waitAndSetupIface(ip string) {
+	for tries := 0; tries < 5; tries++ {
+		time.Sleep(5 * time.Second)
+
+		iface, err := getIfaceNameByIP(ip)
+		if err != nil {
+			log.Printf("failed to get interface name: %v", err)
+		}
+		if iface == "" {
+			continue
+		}
+		if err := setNetRPFilter(iface); err != nil {
+			log.Printf("failed to set rp_filter: %v", err)
+		} else {
+			break
+		}
+	}
+}
+
+// getIfaceNameByIP returns network interface name by IP address.
+func getIfaceNameByIP(ip string) (string, error) {
+	var name string
+	ifaces, err := net.Interfaces()
+	if err != nil {
+		return name, err
+	}
+	for _, iface := range ifaces {
+		addr, err := iface.Addrs()
+		if err != nil {
+			return name, err
+		}
+		for _, a := range addr {
+			netIP, _, err := net.ParseCIDR(a.String())
+			if err != nil {
+				return name, err
+			}
+			if netIP.Equal(net.ParseIP(ip)) {
+				name = iface.Name
+			}
+		}
+	}
+	return name, nil
+}
+
+// setNetRPFilter sets /proc/sys/net/ipv4/conf/<iface>/rp_filter to value of 2.
+// This is needed to accept asymmetrically routed (outgoing routes and incoming
+// routes are different) packets on iface interface.
+func setNetRPFilter(iface string) error {
+	key := fmt.Sprintf("/proc/sys/net/ipv4/conf/%s/rp_filter", iface)
+
+	f, err := os.OpenFile(key, os.O_WRONLY, 0644)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	if _, err := f.WriteString("2\n"); err != nil {
+		return err
+	}
+	return nil
 }

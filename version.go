@@ -1,4 +1,4 @@
 package main
 
 // Version defines current version
-var Version = "0.0.4+git"
+var Version = "0.1.0+git"
