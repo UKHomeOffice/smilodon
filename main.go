@@ -21,6 +21,7 @@ type cmdLineOpts struct {
 	mountFs     bool
 	mountPoint  string
 	envFile     string
+	daemon      bool
 	help        bool
 	version     bool
 }
@@ -41,6 +42,7 @@ func init() {
 	flag.BoolVar(&opts.mountFs, "mount-fs", false, "whether to mount a file system")
 	flag.StringVar(&opts.mountPoint, "mount-point", "/data", "mount point path")
 	flag.StringVar(&opts.envFile, "env-file", "/run/smilodon/environment", "environment file path")
+	flag.BoolVar(&opts.daemon, "daemon", true, "whether to run as daemon")
 	flag.BoolVar(&opts.help, "help", false, "print this message")
 	flag.BoolVar(&opts.version, "version", false, "print version and exit")
 }
@@ -67,6 +69,10 @@ func main() {
 	ec2c = ec2.New(session.New(), aws.NewConfig().WithRegion(i.region))
 	disableSourceDestCheck(i.id, ec2c)
 	filters = buildFilters(i)
+
+	if opts.daemon {
+		log.Println("Running as daemon")
+	}
 
 	for {
 		run(&i)
@@ -199,6 +205,10 @@ func run(i *instance) {
 			if hasFs(opts.blockDevice, opts.fsType) && !isMounted(opts.blockDevice) {
 				mount(opts.blockDevice, opts.mountPoint, opts.fsType)
 			}
+		}
+		if !opts.daemon {
+			log.Println("All done, exiting...")
+			os.Exit(0)
 		}
 	}
 }
