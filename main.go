@@ -24,6 +24,7 @@ type cmdLineOpts struct {
 	daemon      bool
 	help        bool
 	version     bool
+	retryDelay  int
 }
 
 var (
@@ -32,6 +33,7 @@ var (
 	ec2c              *ec2.EC2
 	filters           []*ec2.Filter
 	volumeAttachTries int
+	retryDelay        int
 )
 
 func init() {
@@ -45,6 +47,7 @@ func init() {
 	flag.BoolVar(&opts.daemon, "daemon", true, "whether to run as daemon")
 	flag.BoolVar(&opts.help, "help", false, "print this message")
 	flag.BoolVar(&opts.version, "version", false, "print version and exit")
+	flag.IntVar(&opts.retryDelay, "retry-delay", 120, "time to retry in seconds")
 }
 
 func main() {
@@ -76,7 +79,7 @@ func main() {
 
 	for {
 		run(&i)
-		time.Sleep(120 * time.Second)
+		time.Sleep(time.Duration(opts.retryDelay) * time.Second)
 	}
 }
 
